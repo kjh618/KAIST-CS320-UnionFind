@@ -3,38 +3,65 @@ package unionfind
 import scala.util.parsing.combinator._
 
 trait TIRCFAEHelper extends Helper {
-  // abstract syntax of KXCFAE
-  trait KXCFAE
-  case class Num(num: Int) extends KXCFAE                                   // e ::= n
-  case class Add(left: KXCFAE, right: KXCFAE) extends KXCFAE                //     | {+ e e}
-  case class Sub(left: KXCFAE, right: KXCFAE) extends KXCFAE                //     | {- e e}
-  case class Id(name: String) extends KXCFAE                                //     | x
-  case class Fun(params: List[String], body: KXCFAE) extends KXCFAE         //     | {fun {x} e}
-  case class App(fun: KXCFAE, args: List[KXCFAE]) extends KXCFAE            //     | {e e}
-  case class If0(cond: KXCFAE, thenE: KXCFAE, elseE: KXCFAE) extends KXCFAE //     | {if0 e e e}
-  case class Withcc(name: String, body: KXCFAE) extends KXCFAE              //     | {withcc x e}
-  case class Try(tryE: KXCFAE, catchE: KXCFAE) extends KXCFAE               //     | {try e catch e}
-  case object Throw extends KXCFAE                                          //     | {throw}
+  trait Expr
+  case class Num(num: Int) extends Expr
+  case class Add(left: Expr, right: Expr) extends Expr
+  case class Sub(left: Expr, right: Expr) extends Expr
+  case class Id(name: String) extends Expr
+  case class Fun(paramName: String, paramType: Type, body: Expr) extends Expr
+  case class App(func: Expr, arg: Expr) extends Expr
+  case class If0(cond: Expr, thenE: Expr, elseE: Expr) extends Expr
+  case class Rec(funcName: String, funcType: Type, paramName: String, paramType: Type, body: Expr) extends Expr
 
-  // Parser for KXCFAE
-  object KXCFAE extends RegexParsers {
-    def wrap[T](rule: Parser[T]): Parser[T] = "{" ~> rule <~ "}"
-    lazy val int: Parser[Int] = """-?\d+""".r ^^ (_.toInt)
-    lazy val str: Parser[String] = """[a-zA-Z][a-zA-Z0-9_-]*""".r
-    lazy val expr: Parser[KXCFAE] =
-      int                                       ^^ { case n => Num(n) }                        |
-      wrap("+" ~> expr ~ expr)                  ^^ { case l ~ r => Add(l, r) }                 |
-      wrap("-" ~> expr ~ expr)                  ^^ { case l ~ r => Sub(l, r) }                 |
-      str                                       ^^ { case x => Id(x) }                         |
-      wrap("fun" ~> wrap(rep(str)) ~ expr)      ^^ { case ps ~ b => Fun(ps, b) }               |
-      wrap("if0" ~> expr ~ expr ~ expr)         ^^ { case c ~ t ~ e => If0(c, t, e) }          |
-      wrap("withcc" ~> str ~ expr)              ^^ { case x ~ b => Withcc(x, b) }              |
-      wrap("try" ~> expr ~ "catch" ~ expr)      ^^ { case t ~ _ ~ c => Try(t, c) }             |
-      wrap("throw")                             ^^ { case _ => Throw }                         |
-      wrap(expr ~ rep(expr))                    ^^ { case f ~ as => App(f, as) }
-    def apply(str: String): KXCFAE = parseAll(expr, str).getOrElse(error(s"bad syntax: $str"))
+  trait Type
+  case object NumT extends Type
+  case class ArrowT(p: Type, r: Type) extends Type
+  case class VarT(var ty: Option[Type]) extends Type
+
+  trait Value {
+    override def toString: String = this match {
+      case NumV(n) => n.toString
+      case CloV(_, _, _) => "<function>"
+    }
+  }
+  case class NumV(num: Int) extends Value
+  case class CloV(param: String, body: Expr, var env: Env) extends Value
+
+  type Env = Map[String, Value]
+  type TypeEnv = Map[String, Type]
+
+  def run(str: String): String = {
+    val expr = TIRCFAE(str)
+    typeCheck(expr, Map())
+    interpret(expr, Map()).toString
   }
 
-  // Evaluate a KXCFAE program contained in a string
-  def run(str: String): String
+  def typeCheck(expr: Expr, typeEnv: TypeEnv): Type
+
+  def interpret(expr: Expr, env: Env): Value
+
+  object TIRCFAE extends RegexParsers {
+    def wrap[T](rule: Parser[T]): Parser[T] = "{" ~> rule <~ "}"
+
+    lazy val int: Parser[Int] = """-?\d+""".r ^^ (_.toInt)
+
+    lazy val str: Parser[String] = """[a-zA-Z][a-zA-Z0-9_-]*""".r
+
+    lazy val expr: Parser[Expr] =
+      int ^^ { n => Num(n) } |
+      wrap("+" ~> expr ~ expr) ^^ { case l ~ r => Add(l, r) } |
+      wrap("-" ~> expr ~ expr) ^^ { case l ~ r => Sub(l, r) } |
+      str ^^ { x => Id(x) } |
+      wrap("fun" ~> wrap(str ~ (":" ~> ty)) ~ expr) ^^ { case pn ~ pt ~ b => Fun(pn, pt, b) } |
+      wrap(expr ~ expr) ^^ { case f ~ a => App(f, a) } |
+      wrap("if0" ~> expr ~ expr ~ expr) ^^ { case c ~ t ~ e => If0(c, t, e) } |
+      wrap("recfun" ~> wrap((str ~ (":" ~> ty)) ~ (str ~ (":" ~> ty))) ~ expr) ^^ { case (fn ~ ft) ~ (pn ~ pt) ~ b => Rec(fn, ft, pn, pt, b)}
+
+    lazy val ty: Parser[Type] =
+      "num" ^^ { _ => NumT } |
+      "(" ~> ((ty <~ "->") ~ ty) <~ ")" ^^ { case p ~ r => ArrowT(p, r) } |
+      "?" ^^ { _ => VarT(None) }
+
+    def apply(str: String): Expr = parseAll(expr, str).getOrElse(error(s"bad syntax: $str"))
+  }
 }
