@@ -13,9 +13,16 @@ trait HelperOriginal extends Helper {
   case class If0(cond: Expr, thenE: Expr, elseE: Expr) extends Expr
   case class Rec(funcName: String, funcType: Type, paramName: String, paramType: Type, body: Expr) extends Expr
 
-  trait Type
+  trait Type {
+    override def toString: String = this match {
+      case NumT => "num"
+      case ArrowT(p, r) => s"($p -> $r)"
+      case VarT(None) => "?"
+      case VarT(Some(t)) => t.toString
+    }
+  }
   case object NumT extends Type
-  case class ArrowT(p: Type, r: Type) extends Type
+  case class ArrowT(param: Type, result: Type) extends Type
   case class VarT(var ty: Option[Type]) extends Type
 
   trait Value {
@@ -30,15 +37,15 @@ trait HelperOriginal extends Helper {
   type Env = Map[String, Value]
   type TypeEnv = Map[String, Type]
 
+  def typeCheck(expr: Expr, typeEnv: TypeEnv): Type
+
+  def interpret(expr: Expr, env: Env): Value
+
   def run(str: String): String = {
     val expr = TIRCFAE(str)
     typeCheck(expr, Map())
     interpret(expr, Map()).toString
   }
-
-  def typeCheck(expr: Expr, typeEnv: TypeEnv): Type
-
-  def interpret(expr: Expr, env: Env): Value
 
   object TIRCFAE extends RegexParsers {
     def wrap[T](rule: Parser[T]): Parser[T] = "{" ~> rule <~ "}"
@@ -55,7 +62,8 @@ trait HelperOriginal extends Helper {
       wrap("fun" ~> wrap(str ~ (":" ~> ty)) ~ expr) ^^ { case pn ~ pt ~ b => Fun(pn, pt, b) } |
       wrap(expr ~ expr) ^^ { case f ~ a => App(f, a) } |
       wrap("if0" ~> expr ~ expr ~ expr) ^^ { case c ~ t ~ e => If0(c, t, e) } |
-      wrap("recfun" ~> wrap((str ~ (":" ~> ty)) ~ (str ~ (":" ~> ty))) ~ expr) ^^ { case (fn ~ ft) ~ (pn ~ pt) ~ b => Rec(fn, ft, pn, pt, b)}
+      wrap("recfun" ~> wrap((str ~ (":" ~> ty)) ~ (str ~ (":" ~> ty))) ~ expr) ^^
+        { case (fn ~ ft) ~ (pn ~ pt) ~ b => Rec(fn, ft, pn, pt, b)}
 
     lazy val ty: Parser[Type] =
       "num" ^^ { _ => NumT } |
