@@ -2,7 +2,7 @@ package unionfind
 
 import scala.util.parsing.combinator._
 
-trait TIRCFAEHelper extends Helper {
+trait HelperOriginal extends Helper {
   trait Expr
   case class Num(num: Int) extends Expr
   case class Add(left: Expr, right: Expr) extends Expr

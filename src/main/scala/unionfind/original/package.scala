@@ -1,9 +1,11 @@
 package unionfind
 
-object Runner extends TIRCFAEHelper {
+package object original extends HelperOriginal {
   def typeCheck(expr: Expr, typeEnv: TypeEnv): Type = ???
 
   def interpret(expr: Expr, env: Env): Value = ???
 
-  def tests: Unit = ???
+  def tests: Unit = {
+    test("", "")
+  }
 }
