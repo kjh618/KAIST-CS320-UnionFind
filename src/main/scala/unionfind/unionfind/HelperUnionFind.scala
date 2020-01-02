@@ -1,8 +1,53 @@
-package unionfind.original
+package unionfind.unionfind
 
 import scala.util.parsing.combinator._
 
-trait HelperOriginal extends unionfind.Helper {
+trait HelperUnionFind extends unionfind.Helper {
+  case class UnionFind(var parent: Map[Type, Type] = Map(), var varTNum: Int = 0) {
+    def newVarTNum(): Int = {
+      varTNum += 1
+      varTNum
+    }
+
+    def makeSet(t: Type): Unit =
+      if (!parent.contains(t)) parent = parent + (t -> t)
+      else ()
+
+    def find(t: Type): Type = {
+      if (t == parent(t)) t
+      else find(parent(t))
+    }
+
+    def union(t1: Type, t2: Type): Unit = {
+      def occurs(vtRoot: VarT, t2: Type): Boolean = t2 match {
+        case NumT => false
+        case ArrowT(p, r) => occurs(vtRoot, p) || occurs(vtRoot, r)
+        case VarT(_) =>
+          val t2Root = find(t2)
+          t2Root match {
+            case VarT(_) => vtRoot == t2Root
+            case _ => occurs(vtRoot, t2Root)
+          }
+      }
+
+      def updateParent(vtRoot: VarT, newParent: Type): Unit =
+        if (occurs(vtRoot, newParent)) error("cyclic type")
+        else parent += (vtRoot -> newParent)
+
+      makeSet(t1)
+      makeSet(t2)
+
+      val t1Root = find(t1)
+      val t2Root = find(t2)
+      (t1Root, t2Root) match {
+        case (_, vt@VarT(_)) => updateParent(vt, t1Root)
+        case (vt@VarT(_), _) => updateParent(vt, t2Root)
+        case (ArrowT(p1, r1), ArrowT(p2, r2)) => union(p1, p2); union(r1, r2)
+        case _ => mustSame(t1Root, t2Root)
+      }
+    }
+  }
+
   trait Expr
   case class Num(num: Int) extends Expr
   case class Add(left: Expr, right: Expr) extends Expr
@@ -27,16 +72,18 @@ trait HelperOriginal extends unionfind.Helper {
     else notype(s"$left is not equal to $right")
 
   trait Type {
-    override def toString: String = this match {
+    def toStringWith(uf: UnionFind): String = this match {
       case NumT => "num"
-      case ArrowT(p, r) => s"($p -> $r)"
-      case VarT(None) => "?"
-      case VarT(Some(t)) => t.toString
+      case ArrowT(p, r) => s"(${p.toStringWith(uf)} -> ${r.toStringWith(uf)})"
+      case VarT(_) => uf.find(this) match {
+        case VarT(_) => "?"
+        case t => t.toStringWith(uf)
+      }
     }
   }
   case object NumT extends Type
   case class ArrowT(param: Type, result: Type) extends Type
-  case class VarT(var ty: Option[Type]) extends Type
+  case class VarT(num: Int) extends Type
 
   trait Value {
     override def toString: String = this match {
@@ -50,13 +97,13 @@ trait HelperOriginal extends unionfind.Helper {
   type Env = Map[String, Value]
   type TypeEnv = Map[String, Type]
 
-  def typeCheck(expr: Expr, typeEnv: TypeEnv): Type
+  def typeCheck(tuple: (Expr, UnionFind), typeEnv: TypeEnv): Type
 
   def interpret(expr: Expr, env: Env): Value
 
   def run(str: String): String = {
-    val expr = TIRCFAE(str)
-    typeCheck(expr, Map())
+    val (expr, uf) = TIRCFAE(str)
+    typeCheck((expr, uf), Map())
     interpret(expr, Map()).toString
   }
 
@@ -78,11 +125,19 @@ trait HelperOriginal extends unionfind.Helper {
       wrap("recfun" ~> wrap((str ~ (":" ~> ty)) ~ (str ~ (":" ~> ty))) ~ expr) ^^
         { case (fn ~ ft) ~ (pn ~ pt) ~ b => Rec(fn, ft, pn, pt, b)}
 
-    lazy val ty: Parser[Type] =
-      "num" ^^ { _ => NumT } |
-      "(" ~> ((ty <~ "->") ~ ty) <~ ")" ^^ { case p ~ r => ArrowT(p, r) } |
-      "?" ^^ { _ => VarT(None) }
+    val uf = UnionFind()
 
-    def apply(str: String): Expr = parseAll(expr, str).getOrElse(error(s"bad syntax: $str"))
+    lazy val ty: Parser[Type] =
+      "num" ^^ { _ => uf.makeSet(NumT); NumT } |
+      "(" ~> ((ty <~ "->") ~ ty) <~ ")" ^^ { case p ~ r => uf.makeSet(ArrowT(p, r)); ArrowT(p, r) } |
+      "?" ^^ { _ =>
+        val num = uf.newVarTNum()
+        uf.makeSet(VarT(num)); VarT(num)
+      }
+
+    def apply(str: String): (Expr, UnionFind) = {
+      val result = parseAll(expr, str).getOrElse(error(s"bad syntax: $str"))
+      (result, uf)
+    }
   }
 }

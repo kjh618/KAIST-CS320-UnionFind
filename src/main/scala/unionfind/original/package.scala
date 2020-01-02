@@ -1,19 +1,6 @@
 package unionfind
 
 package object original extends HelperOriginal {
-  def notype(msg: Any): Nothing = error(s"no type: $msg")
-
-  def same(left: Type, right: Type): Boolean = (left, right) match {
-    case (NumT, NumT) => true
-    case (ArrowT(p1, r1), ArrowT(p2, r2)) =>
-      same(p1, p2) && same(r1, r2)
-    case _ => false
-  }
-
-  def mustSame(left: Type, right: Type): Type =
-    if (same(left, right)) left
-    else notype(s"$left is not equal to $right")
-
   def resolve(ty: Type): Type = ty match {
     case VarT(None) => ty
     case VarT(Some(t)) => resolve(t)
