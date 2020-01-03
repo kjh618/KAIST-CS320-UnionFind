@@ -1,8 +1,8 @@
 package unionfind
 
-import original.TypeUnification._
+import `implicit`.TypeUnification._
 
-package object original extends HelperSpecific {
+package object `implicit` extends HelperSpecific {
   def typeCheck(expr: Expr, tyEnv: TypeEnv): Type = expr match {
     case Num(_) => NumT
     case Add(l, r) =>

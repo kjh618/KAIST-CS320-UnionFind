@@ -1,4 +1,4 @@
-package unionfind.unionfind
+package unionfind.`implicit`
 
 import scala.util.parsing.combinator._
 
@@ -19,7 +19,7 @@ trait HelperSpecific extends unionfind.Helper {
   type Env = Map[String, Value]
   type TypeEnv = Map[String, Type]
 
-  def typeCheck(tuple: (Expr, TypeUnionFind), typeEnv: TypeEnv): Type
+  def typeCheck(expr: Expr, typeEnv: TypeEnv): Type
 
   def interpret(expr: Expr, env: Env): Value
 
@@ -43,19 +43,11 @@ trait HelperSpecific extends unionfind.Helper {
       wrap("recfun" ~> wrap((str ~ (":" ~> ty)) ~ (str ~ (":" ~> ty))) ~ expr) ^^
         { case (fn ~ ft) ~ (pn ~ pt) ~ b => Rec(fn, ft, pn, pt, b)}
 
-    val tuf = TypeUnionFind()
-
     lazy val ty: Parser[Type] =
-      "num" ^^ { _ => tuf.makeSet(NumT); NumT } |
-      "(" ~> ((ty <~ "->") ~ ty) <~ ")" ^^ { case p ~ r => tuf.makeSet(ArrowT(p, r)); ArrowT(p, r) } |
-      "?" ^^ { _ =>
-        val num = tuf.newVarTNum()
-        tuf.makeSet(VarT(num)); VarT(num)
-      }
+      "num" ^^ { _ => NumT } |
+      "(" ~> ((ty <~ "->") ~ ty) <~ ")" ^^ { case p ~ r => ArrowT(p, r) } |
+      "?" ^^ { _ => VarT(None) }
 
-    def apply(str: String): (Expr, TypeUnionFind) = {
-      val result = parseAll(expr, str).getOrElse(error(s"bad syntax: $str"))
-      (result, tuf)
-    }
+    def apply(str: String): Expr = parseAll(expr, str).getOrElse(error(s"bad syntax: $str"))
   }
 }

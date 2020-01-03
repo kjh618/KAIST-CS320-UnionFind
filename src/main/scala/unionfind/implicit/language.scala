@@ -1,4 +1,4 @@
-package unionfind.original
+package unionfind.`implicit`
 
 trait Expr
 case class Num(num: Int) extends Expr

@@ -1,4 +1,4 @@
-package unionfind.original
+package unionfind.`implicit`
 
 object TypeUnification {
   def resolve(ty: Type): Type = ty match {
@@ -17,13 +17,13 @@ object TypeUnification {
   }
 
   def unify(t1: Type, t2: Type): Unit = {
-    unifyOrignal(t1, t2)
-    //unifyModified(t1, t2)
+    //unifyOriginal(t1, t2)
+    unifyModified(t1, t2)
   }
 
-  def unifyOrignal(t1: Type, t2: Type): Unit = t1 match {
+  def unifyOriginal(t1: Type, t2: Type): Unit = t1 match {
     case vt@VarT(ty) => ty match {
-      case Some(t) => unifyOrignal(t, t2)
+      case Some(t) => unifyOriginal(t, t2)
       case _ =>
         val t = resolve(t2)
         if (vt eq t) ()
@@ -33,12 +33,12 @@ object TypeUnification {
         }
     }
     case _ => t2 match {
-      case VarT(ty) => unifyOrignal(t2, t1)
+      case VarT(ty) => unifyOriginal(t2, t1)
       case NumT => mustSame(t1, t2); ()
       case ArrowT(l, r) => t1 match {
         case ArrowT(a, b) =>
-          unifyOrignal(l, a)
-          unifyOrignal(r, b)
+          unifyOriginal(l, a)
+          unifyOriginal(r, b)
         case _ =>
           error(s"not an arrow type: $t1")
       }
@@ -55,7 +55,9 @@ object TypeUnification {
     (t1Root, t2Root) match {
       case (_, vt@VarT(None)) => updateParent(vt, t1Root)
       case (vt@VarT(None), _) => updateParent(vt, t2Root)
-      case (ArrowT(p1, r1), ArrowT(p2, r2)) => unifyModified(p1, p2); unifyModified(r1, r2)
+      case (ArrowT(p1, r1), ArrowT(p2, r2)) =>
+        unifyModified(p1, p2)
+        unifyModified(r1, r2)
       case _ => mustSame(t1Root, t2Root)
     }
   }

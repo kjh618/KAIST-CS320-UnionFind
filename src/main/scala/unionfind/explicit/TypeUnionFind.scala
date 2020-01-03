@@ -1,4 +1,4 @@
-package unionfind.unionfind
+package unionfind.explicit
 
 case class TypeUnionFind(var parent: Map[Type, Type] = Map(), var varTNum: Int = 0) {
   def newVarTNum(): Int = {

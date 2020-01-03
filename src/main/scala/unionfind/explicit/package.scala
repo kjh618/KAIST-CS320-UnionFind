@@ -1,6 +1,6 @@
 package unionfind
 
-package object unionfind extends HelperSpecific {
+package object explicit extends HelperSpecific {
   def typeCheck(tuple: (Expr, TypeUnionFind), tyEnv: TypeEnv): Type = {
     val (expr, tuf) = tuple
     expr match {
