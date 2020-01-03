@@ -2,17 +2,7 @@ package unionfind.original
 
 import scala.util.parsing.combinator._
 
-trait HelperOriginal extends unionfind.Helper {
-  trait Expr
-  case class Num(num: Int) extends Expr
-  case class Add(left: Expr, right: Expr) extends Expr
-  case class Sub(left: Expr, right: Expr) extends Expr
-  case class Id(name: String) extends Expr
-  case class Fun(paramName: String, paramType: Type, body: Expr) extends Expr
-  case class App(func: Expr, arg: Expr) extends Expr
-  case class If0(cond: Expr, thenE: Expr, elseE: Expr) extends Expr
-  case class Rec(funcName: String, funcType: Type, paramName: String, paramType: Type, body: Expr) extends Expr
-
+trait HelperSpecific extends unionfind.Helper {
   def notype(msg: Any): Nothing = error(s"no type: $msg")
 
   def same(left: Type, right: Type): Boolean = (left, right) match {
@@ -26,27 +16,6 @@ trait HelperOriginal extends unionfind.Helper {
     if (same(left, right)) left
     else notype(s"$left is not equal to $right")
 
-  trait Type {
-    override def toString: String = this match {
-      case NumT => "num"
-      case ArrowT(p, r) => s"($p -> $r)"
-      case VarT(None) => "?"
-      case VarT(Some(t)) => t.toString
-    }
-  }
-  case object NumT extends Type
-  case class ArrowT(param: Type, result: Type) extends Type
-  case class VarT(var ty: Option[Type]) extends Type
-
-  trait Value {
-    override def toString: String = this match {
-      case NumV(n) => n.toString
-      case CloV(_, _, _) => "<function>"
-    }
-  }
-  case class NumV(num: Int) extends Value
-  case class CloV(param: String, body: Expr, var env: Env) extends Value
-
   type Env = Map[String, Value]
   type TypeEnv = Map[String, Type]
 
@@ -54,11 +23,7 @@ trait HelperOriginal extends unionfind.Helper {
 
   def interpret(expr: Expr, env: Env): Value
 
-  def run(str: String): String = {
-    val expr = TIRCFAE(str)
-    typeCheck(expr, Map())
-    interpret(expr, Map()).toString
-  }
+  def run(str: String): String
 
   object TIRCFAE extends RegexParsers {
     def wrap[T](rule: Parser[T]): Parser[T] = "{" ~> rule <~ "}"
